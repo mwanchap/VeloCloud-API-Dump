@@ -21,3 +21,11 @@ Future improvement (PRs super welcome!):
  - Rewrite to use more idiomatic python_variable_names rather than being mostly camelCase
  - Combine Format_Usage and Format_Bandwidth
  - Combine Get_App_Name and Get_Catergory_Name [sic]
+
+To set this up on an EC2 instance
+- `sudo yum -y update`
+- `sudo yum install python36` or alternatively try [this](https://stackoverflow.com/a/48314242/2939759)
+- `sudo python36 -m pip install --upgrade pip`
+- `sudo python36 -m pip install -r requirements.txt`
+- `python36 export-velocloud-data.py`
+
