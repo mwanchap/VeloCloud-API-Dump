@@ -1,7 +1,6 @@
 # TODO
 # device app metrics doesn't seem to work
 # add interval param
-# fix writing to CSV
 # calc totals
 
 $base_url = 'https://your-velocloud-instance.com/portal/rest'
@@ -46,7 +45,7 @@ function Main
         $totalAppData = $apps | Measure-Object -Property totalBytes -Sum
 
         # build app usage data for writing to CSV
-        $appDataToWrite = $apps | foreach-object { [PSCustomObject]@{
+        $appDataToWrite = $apps | ForEach-Object { [PSCustomObject]@{
             'edge name'  = $edge.name
             'app name'   = Get-VeloCloudAppName -AppId $_.name
             'usage (MB)' = Format-UsageInMb -Usage $_.totalBytes
@@ -59,11 +58,10 @@ function Main
                                         -MetricName 'Link'
 
         # build link data for writing to CSV
-        $linkDataToWrite = $linkMetrics | foreach-object { [PSCustomObject]@{
+        $linkDataToWrite = $linkMetrics | ForEach-Object { [PSCustomObject]@{
             'edge name'  = $edge.name
             'link name'  = $_.link.displayName
             'link type'  = $_.name
-            'app name'   = Get-VeloCloudAppName -AppId $_.name
             'bandwidth Rx (MBbps)' = Format-UsageInMb -Usage $_.bpsOfBestPathRx
             'bandwidth Tx (MBbps)' = Format-UsageInMb -Usage $_.bpsOfBestPathTx
         }}
@@ -75,11 +73,9 @@ function Main
                                                 -MetricName 'Device'
 
         # build device usage for writing to CSV
-        $deviceDataToWrite = $edgeDeviceMetrics | foreach-object { [PSCustomObject]@{
+        $deviceDataToWrite = $edgeDeviceMetrics | ForEach-Object { [PSCustomObject]@{
             'edge name'  = $edge.name
             'device name'  = $_.info.hostName
-            'app name'   = Get-VeloCloudAppName -AppId $_.application
-            'category'   = Get-VeloCloudCategoryName -CategoryId $_.category
             'usage (Mb)' = Format-UsageInMb -Usage $_.totalBytes
         }}
 
@@ -98,6 +94,17 @@ function Main
             $deviceApps = Get-EdgeMetrics   -EdgeId $edge.id `
                                             -MetricName 'App' `
                                             -ExtraParams $deviceQueryParams
+
+            $deviceAppDataToWrite = $deviceApps | ForEach-Object { [PSCustomObject]@{
+                'edge name'  = $edge.name
+                'device name'  = $_.info.hostName
+                'app name'   = Get-VeloCloudAppName -AppId $_.application
+                'category'   = Get-VeloCloudCategoryName -CategoryId $_.category
+                'usage (Mb)' = Format-UsageInMb -Usage $_.totalBytes
+            }}
+
+            $deviceAppDataToWrite | Export-Csv -Path "Device app usage - $edgeCleanName.csv"
+
             $deviceApps
         }
     }
@@ -185,7 +192,18 @@ function CallApi ([string]$Path,
 
 function Get-VeloCloudAppName ([int]$AppId)
 {
-    return $appsLookup[$AppId]
+    $AppName = "Unknown"
+
+    try
+    {
+        $AppName = $appsLookup[$AppId]
+    }
+    catch
+    {
+        Write-Warning "Unknown application: $AppId"
+    }
+
+    return $AppName
 }
 
 function Get-VeloCloudCategoryName ([int]$CategoryId)
