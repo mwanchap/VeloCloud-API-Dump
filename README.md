@@ -1,6 +1,21 @@
 # VeloCloud-API-Dump
 Uses VeloCloud's API to dump out a bunch of CSVs containing all the edge/app/device usage data.
 
+## Powershell version
+
+Advantage of this version is you just need access to VeloCloud, and don't need to ask them to provide their weirdly-confidential Python client library.
+
+Usage:
+ - Get a computer and install Windows 8-10 on it
+ - Clone this repository and edit Export-VeloCloudData.ps1
+ - Update the $base_url variable with the domain of your VeloCloud instance, your username and password
+ - Execute Export-VeloCloudData.ps1
+   - If you get an error like "running scripts is disabled on this system" you'll need to enable execution first with `Set-ExecutionPolicy Bypass -Scope Process`
+ - Wait for it to run, CSV output will be in a /Output folder in the same location as the script
+ - That's it, you're done
+
+## Python version
+
 Usage:
  - Get a computer and install Python 3 on it
  - Download and unzip the VeloCloud API stuff somewhere (it's confidential so I can't include it)
@@ -15,9 +30,7 @@ Data transfer values are formatted in MB and rounded off, so you'll probably wan
 Future improvement (PRs super welcome!):
  - Do API calls asynchronously or in batches, maybe get multiple edges/apps/devices at once
  - Output into spreadsheets as well as CSVs
- - Replace velocloud_lookups.py with something generating enums from https://sdn.macquarieview.com/vco/enums.js , since VeloCloud don't seem to provide an API endpoint to enumerate that stuff
- - Refactor into something a bit tidier
- - Fix the typos
+ - Replace velocloud_lookups.py/.ps1 with something generating enums from https://sdn.macquarieview.com/vco/enums.js , since VeloCloud don't seem to provide an API endpoint to enumerate that stuff
  - Rewrite to use more idiomatic python_variable_names rather than being mostly camelCase
  - Combine Format_Usage and Format_Bandwidth
  - Combine Get_App_Name and Get_Catergory_Name [sic]

@@ -1,18 +1,6 @@
-# TODO
-# device app metrics doesn't seem to work
-# add interval param
-# calc totals
-
-$base_url = 'https://your-velocloud-instance.com/portal/rest'
-$script:webSession = $null
+$base_url = 'https://your-velocloud-domain/portal/rest'
 $username = ''
 $password = ''
-
-Import-Module "$PSScriptRoot\velocloud_lookups.ps1"
-
-# set the current location to the same location as the script and create the /Output directory
-Set-Location $PSScriptRoot
-New-Item -ItemType Directory -Path 'Output'
 
 function Main
 {
@@ -22,8 +10,8 @@ function Main
     # get list of edges
     $edges = Get-Edges
 
-    # just for testing, get the first 5
-    $edges = $edges | select -First 5
+    # just for testing, limit processing to the first 5
+    # $edges = $edges | select -First 5
     $edgeNum = 0
     $edgeCount = $edges.Count
 
@@ -66,7 +54,7 @@ function Main
             'bandwidth Tx (MBbps)' = Format-UsageInMb -Usage $_.bpsOfBestPathTx
         }}
 
-        $linkDataToWrite | Export-Csv -Path "Link bandwidth - $edgeCleanName.csv"
+        $linkDataToWrite | Export-Csv -Path "Output\Link bandwidth - $edgeCleanName.csv"
 
         # query usage for each device in this edge
         $edgeDeviceMetrics = Get-EdgeMetrics    -EdgeId $edge.id `
@@ -79,7 +67,10 @@ function Main
             'usage (Mb)' = Format-UsageInMb -Usage $_.totalBytes
         }}
 
-        $deviceDataToWrite | Export-Csv -Path "Device usage - $edgeCleanName.csv"
+        $deviceDataToWrite | Export-Csv -Path "Output\Device usage - $edgeCleanName.csv"
+
+        # declare empty device app data array, to hold info for all the devices in the edge
+        $deviceAppDataToWrite = @()
 
         foreach ($device in $edgeDeviceMetrics)
         {
@@ -95,28 +86,27 @@ function Main
                                             -MetricName 'App' `
                                             -ExtraParams $deviceQueryParams
 
-            $deviceAppDataToWrite = $deviceApps | ForEach-Object { [PSCustomObject]@{
+            # add this device's app usage and info, for writing to CSV
+            $deviceAppDataToWrite += $deviceApps | ForEach-Object { [PSCustomObject]@{
                 'edge name'  = $edge.name
-                'device name'  = $_.info.hostName
+                'device name'= $device.info.hostName
                 'app name'   = Get-VeloCloudAppName -AppId $_.application
                 'category'   = Get-VeloCloudCategoryName -CategoryId $_.category
                 'usage (Mb)' = Format-UsageInMb -Usage $_.totalBytes
             }}
-
-            $deviceAppDataToWrite | Export-Csv -Path "Device app usage - $edgeCleanName.csv"
-
-            $deviceApps
         }
+
+        $deviceAppDataToWrite | Export-Csv -Path "Output\Device app usage - $edgeCleanName.csv"
     }
 
-    # write out summary data
-
+    Write-Host "Finished!"
 }
 
 function Login-VeloCloud
 {
     # force TLS 1.2
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $script:webSession = $null
 
     $loginBody = @{
         'username' = $username
@@ -127,7 +117,14 @@ function Login-VeloCloud
                             -Body $loginBody `
                             -Method Post
     
-    # TODO: check for failed logins
+    # for some weird reason instead of returning an error for failed api logins, it returns a success
+    # message containing a HTML login form containing an error (perhaps to support legacy clients?)
+    # so instead, just check if it's not an empty string, which is what gets returned on success
+    if ($loginRequest.Length -gt 0)
+    {
+        Write-Error "Incorrect username, password or velocloud instance URL"
+        Write-Warning "More info: $loginRequest"
+    }
 }
 
 function Get-Edges
@@ -143,9 +140,10 @@ function Get-EdgeMetrics ([int]$EdgeId, [string]$MetricName, [HashTable]$ExtraPa
 {
     $params = @{
         'id' = $EdgeId
-        #'interval' = @{
-        #    'start' = 1554070363163
-        #}
+        'interval' = @{
+            'start' = $startDate
+            'end' = $endDate
+        }
     }
 
     if($null -ne $ExtraParams)
@@ -166,8 +164,10 @@ function CallApi ([string]$Path,
 {
     $request = $null
 
-    $bodyJson = $Body | ConvertTo-Json
+    # specifying depth is necessary because the default is 2; won't convert anything nested >3 deep!
+    $bodyJson = $Body | ConvertTo-Json -Depth 5
 
+    # need to create a session if one doesn't already exist, for storing the auth cookie
     if($null -eq $script:webSession)
     {
         $request =  Invoke-RestMethod `
@@ -217,29 +217,27 @@ function Format-UsageInMb ([double]$Usage)
     return [Math]::Round($Usage / 1Mb, 5)
 }
 
-function CallApi2() {
-    param(
-        [string]$Path,
-        [HashTable]$Body
-    )
+# add the lookup values for applications and categories
+Import-Module "$PSScriptRoot\velocloud_lookups.ps1"
 
-    # TODO: use params table and only have one call
-    # $params = @{}
-    $bodyJson = $Body | ConvertTo-Json
-    # if using fiddler, add this line: -Proxy "http://127.0.0.1:8888"
+# create the /Output directory in the same location as the script, for writing CSVs
+Set-Location $PSScriptRoot
+New-Item -ItemType Directory -Path "Output" -Force
 
-    if($null -eq $script:webSession)
-    {
-        $response = Invoke-WebRequest -Uri ($base_url + $Path) -Method Post -Body $bodyJson -MaximumRedirection 0 -SessionVariable 'session' -UseBasicParsing #-Proxy "http://127.0.0.1:8888"
-        $script:webSession = $session
-    }
-    else
-    {
-        $response = Invoke-WebRequest -Uri ($base_url + $Path) -Method Post -Body $bodyJson -MaximumRedirection 0 -WebSession $script:webSession -UseBasicParsing #-Proxy "http://127.0.0.1:8888"
-    }
+# calculate report date range
+# reporting across the last full week, from midnight on Monday through to the next Monday
+# each date is a unix timestamp in milliseconds and needs to be in UTC
 
-    #if($response.Headers['Set-Cookie'] -match 'velocloud.message')
-    return $response
-}
+# calculate Monday of last full week (e.g. if it's Tuesday now, Today.DayOfWeek is 2, so -6 -2 = -8 days ago)
+$todayDayNumber = [int][DateTime]::Today.DayOfWeek
+$lastMonday = [DateTime]::Today.AddDays(-6 -$todayDayNumber)
 
+#convert to UTC and DateTimeOffset (necessary to access .ToUnixTimeMilliseconds)
+$lastMondayUtc = [DateTimeOffset]$lastMonday.ToUniversalTime()
+
+# convert to unix timestamp format via the handy-dandy method DateTimeOffset.ToUnixTimeMilliseconds
+$startDate = $lastMondayUtc.ToUnixTimeMilliseconds()
+$endDate = $lastMondayUtc.AddDays(7).ToUnixTimeMilliseconds()
+
+# actually run the script, starts in the "Main" function back up the top
 Main
