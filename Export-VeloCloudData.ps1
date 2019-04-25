@@ -39,7 +39,7 @@ function Main
             'usage (MB)' = Format-UsageInMb -Usage $_.totalBytes
         }}
 
-        $appDataToWrite | Export-Csv -Path "Output\App usage - $edgeCleanName.csv"
+        $appDataToWrite | Export-Csv -Path "Output\App usage - $edgeCleanName.csv" -NoTypeInformation
 
         # query usage for each link in this edge (to get bandwidth etc)
         $linkMetrics = Get-EdgeMetrics  -EdgeId $edge.id `
@@ -54,7 +54,7 @@ function Main
             'bandwidth Tx (MBbps)' = Format-UsageInMb -Usage $_.bpsOfBestPathTx
         }}
 
-        $linkDataToWrite | Export-Csv -Path "Output\Link bandwidth - $edgeCleanName.csv"
+        $linkDataToWrite | Export-Csv -Path "Output\Link bandwidth - $edgeCleanName.csv" -NoTypeInformation
 
         # query usage for each device in this edge
         $edgeDeviceMetrics = Get-EdgeMetrics    -EdgeId $edge.id `
@@ -67,7 +67,7 @@ function Main
             'usage (Mb)' = Format-UsageInMb -Usage $_.totalBytes
         }}
 
-        $deviceDataToWrite | Export-Csv -Path "Output\Device usage - $edgeCleanName.csv"
+        $deviceDataToWrite | Export-Csv -Path "Output\Device usage - $edgeCleanName.csv" -NoTypeInformation
 
         # declare empty device app data array, to hold info for all the devices in the edge
         $deviceAppDataToWrite = @()
@@ -96,7 +96,7 @@ function Main
             }}
         }
 
-        $deviceAppDataToWrite | Export-Csv -Path "Output\Device app usage - $edgeCleanName.csv"
+        $deviceAppDataToWrite | Export-Csv -Path "Output\Device app usage - $edgeCleanName.csv" -NoTypeInformation
     }
 
     Write-Host "Finished!"
