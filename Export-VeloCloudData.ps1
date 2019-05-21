@@ -25,6 +25,19 @@ function Main
         # if you aren't familiar with regex syntax: https://www.regular-expressions.info/reference.html
         $edgeCleanName = [Regex]::Replace($edge.name, '[^a-zA-Z0-9]','')
 
+        # get QoS data for this edge
+        $qosEvents = Get-EdgeQosEvents -EdgeId $edge.id
+
+        # overall quality score 0 is the one used on the site
+        $qualityScore = $qosEvents.overallLinkQuality.score.0
+        
+        $qosDataToWrite = [PSCustomObject]@{
+            'edge name' = $edge.name
+            'QoS score' = $qualityScore
+        }
+
+        $qosDataToWrite | Export-Csv -Path "Output\Edge QoS.csv" -NoTypeInformation -Append
+
         # query usage for each app in this edge
         $apps = Get-EdgeMetrics -EdgeId $edge.id `
                                 -MetricName 'App'
@@ -152,6 +165,24 @@ function Get-EdgeMetrics ([int]$EdgeId, [string]$MetricName, [HashTable]$ExtraPa
     }
 
     $response = CallApi -Path "/metrics/getEdge$($MetricName)Metrics" `
+                        -Body $params `
+                        -Method Post
+
+    return $response
+}
+
+function Get-EdgeQosEvents ([int]$EdgeId)
+{
+    $params = @{
+        'edgeId' = $EdgeId
+        'maxSamples' = 1 # removes all the unused timeseries data (can't set this to 0 though)
+        'interval' = @{
+            'start' = $startDate
+            'end' = $endDate
+        }
+    }
+
+    $response = CallApi -Path "/linkQualityEvent/getLinkQualityEvents" `
                         -Body $params `
                         -Method Post
 
