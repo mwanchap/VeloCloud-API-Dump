@@ -270,5 +270,11 @@ $lastMondayUtc = [DateTimeOffset]$lastMonday.ToUniversalTime()
 $startDate = $lastMondayUtc.ToUnixTimeMilliseconds()
 $endDate = $lastMondayUtc.AddDays(7).ToUnixTimeMilliseconds()
 
+# or to use a customised date range, comment out the above, uncomment the below, and change the dates
+# $startDateString = "2019-01-31"
+# $endDateString = "2019-02-28"
+# $startDate = ([DateTimeOffset][DateTime]::Parse($startDateString).ToUniversalTime()).ToUnixTimeMilliseconds()
+# $endDate = ([DateTimeOffset][DateTime]::Parse($endDateString).ToUniversalTime()).ToUnixTimeMilliseconds()
+
 # actually run the script, starts in the "Main" function back up the top
 Main
