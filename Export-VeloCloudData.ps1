@@ -19,7 +19,8 @@ function Main
     foreach ($edge in $edges)
     {
         $edgeNum++
-        Write-Host "Edge $edgeNum/$edgeCount $($edge.name) (edge $($edge.id))"
+        Write-Progress -Activity "Edge $edgeNum/$edgeCount $($edge.name) (edge $($edge.id))" -PercentComplete (($edgeNum/$edgeCount)*100)
+        
 
         # strip non-alphanumeric characters from the edge name to make a valid windows filename
         # if you aren't familiar with regex syntax: https://www.regular-expressions.info/reference.html
@@ -211,11 +212,24 @@ function CallApi ([string]$Path,
     }
     else
     {
-        $request =  Invoke-RestMethod `
-                        -Uri ($base_url + $Path) `
-                        -Method Post `
-                        -Body $bodyJson `
-                        -WebSession $script:webSession #-Proxy "http://127.0.0.1:8888"
+        # VeloCloud API randomly fails all the time, so retry a few times if that happens
+        foreach($i in 1..10)
+        {
+            try
+            {
+                $request =  Invoke-RestMethod `
+                            -Uri ($base_url + $Path) `
+                            -Method Post `
+                            -Body $bodyJson `
+                            -WebSession $script:webSession #-Proxy "http://127.0.0.1:8888"
+                
+                break;
+            }
+            catch [System.Net.WebException]
+            {
+                Write-Warning "Error while querying VeloCloud API, retrying ($i/10). Error was: $($_.Exception.Message)"
+            }
+        }
     }
 
     return $request
