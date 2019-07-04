@@ -12,6 +12,10 @@ function Main
 
     # just for testing, limit processing to the first 5
     # $edges = $edges | select -First 5
+
+    # to select only a single edge, uncomment the below
+    # $edges = $edges | where name -like "*edge name*" # leave the *asterisks*, they're required for -like to find a partial match
+
     $edgeNum = 0
     $edgeCount = $edges.Count
 
