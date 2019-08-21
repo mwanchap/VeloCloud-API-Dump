@@ -82,6 +82,11 @@ function Main
         $deviceDataToWrite = $edgeDeviceMetrics | ForEach-Object { [PSCustomObject]@{
             'edge name'  = $edge.name
             'device name'  = $_.info.hostName
+            'mac address' = $_.sourceMac
+            'os name' = $_.info.osName
+            'osVersion' = $_.info.osVersion
+            'deviceType' = $_.info.deviceType
+            'deviceModel' = $_.info.deviceModel
             'usage (Mb)' = Format-UsageInMb -Usage $_.totalBytes
         }}
 
